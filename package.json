@@ -2,9 +2,10 @@
   "name": "lem",
   "version": "0.0.0",
   "description": "lem electron frontend",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/cli.js",
+    "build": "npx tsc && cp src/index.html dist/index.html",
+    "start": "node dist/cli.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -21,10 +22,12 @@
     "vscode-jsonrpc": "^3.4.1"
   },
   "bin": {
-    "lem-electron": "src/cli.js"
+    "lem-electron": "dist/cli.js"
   },
   "devDependencies": {
+    "@types/node": "^20.11.16",
     "electron-rebuild": "^1.10.1",
-    "prettier": "3.1.1"
+    "prettier": "3.1.1",
+    "typescript": "^5.3.3"
   }
 }
