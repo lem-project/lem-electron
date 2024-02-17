@@ -58,7 +58,6 @@ class JSONRPC {
     );
 
     webSocket.onmessage = (event) => {
-      console.log(event);
       serverAndClient.receiveAndSend(JSON.parse(event.data.toString()));
     };
 

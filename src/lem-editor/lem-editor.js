@@ -54,7 +54,7 @@ class LemEditorPane extends HTMLElement {
 }
 
 function doLog(message, params) {
-  //console.log(message, params);
+  // console.log(message, params);
 }
 
 class WebSocketRPCDelegator {
@@ -83,7 +83,7 @@ class VSCodeJSONRPCDelegator {
     const childProcess = cp.spawn("lem-jsonrpc", ["--mode", "stdio"]);
     this.rpcConnection = rpc.createMessageConnection(
       new rpc.StreamMessageReader(childProcess.stdout),
-      new rpc.StreamMessageWriter(childProcess.stdin),
+      new rpc.StreamMessageWriter(childProcess.stdin)
     );
   }
 
@@ -109,27 +109,29 @@ class LemEditor extends HTMLElement {
     super();
 
     this.viewTable = {};
+    this.messageMap = new Map();
 
     this.rpcDelegator = new WebSocketRPCDelegator();
     // this.rpcDelegator = new VSCodeJSONRPCDelegator();
 
-    this.rpcDelegator.on("update-foreground", this.updateForeground.bind(this));
-    this.rpcDelegator.on("update-background", this.updateBackground.bind(this));
-    this.rpcDelegator.on("make-view", this.makeView.bind(this));
-    this.rpcDelegator.on("delete-view", this.deleteView.bind(this));
-    this.rpcDelegator.on("resize-view", this.resizeView.bind(this));
-    this.rpcDelegator.on("move-view", this.moveView.bind(this));
-    this.rpcDelegator.on("clear", this.clear.bind(this));
-    this.rpcDelegator.on("clear-eol", this.clearEol.bind(this));
-    this.rpcDelegator.on("clear-eob", this.clearEob.bind(this));
-    this.rpcDelegator.on("put", this.put.bind(this));
-    this.rpcDelegator.on("modeline-put", this.modelinePut.bind(this));
-    this.rpcDelegator.on("touch", this.touch.bind(this));
-    this.rpcDelegator.on("move-cursor", this.moveCursor.bind(this));
-    this.rpcDelegator.on("scroll", this.scroll.bind(this));
-    this.rpcDelegator.on("update-display", this.updateDisplay.bind(this));
-    this.rpcDelegator.on("set-font", this.setFont.bind(this));
-    this.rpcDelegator.on("exit", this.exit.bind(this));
+    this.register("update-foreground", this.updateForeground.bind(this));
+    this.register("update-background", this.updateBackground.bind(this));
+    this.register("make-view", this.makeView.bind(this));
+    this.register("delete-view", this.deleteView.bind(this));
+    this.register("resize-view", this.resizeView.bind(this));
+    this.register("move-view", this.moveView.bind(this));
+    this.register("clear", this.clear.bind(this));
+    this.register("clear-eol", this.clearEol.bind(this));
+    this.register("clear-eob", this.clearEob.bind(this));
+    this.register("put", this.put.bind(this));
+    this.register("modeline-put", this.modelinePut.bind(this));
+    this.register("touch", this.touch.bind(this));
+    this.register("move-cursor", this.moveCursor.bind(this));
+    this.register("scroll", this.scroll.bind(this));
+    this.register("update-display", this.updateDisplay.bind(this));
+    this.register("set-font", this.setFont.bind(this));
+    this.register("exit", this.exit.bind(this));
+    this.register("bulk", this.bulk.bind(this));
 
     this.rpcDelegator.listen();
 
@@ -144,14 +146,19 @@ class LemEditor extends HTMLElement {
 
     this.userId = null;
 
-    this.rpcDelegator.request("login", {
-      width: calcDisplayCols(this.width),
-      height: calcDisplayRows(this.height),
-      foreground: option.foreground,
-      background: option.background,
-    }, (response) => {
-      this.userId = response.userId;
-    });
+    this.rpcDelegator.request(
+      "login",
+      {
+        width: calcDisplayCols(this.width),
+        height: calcDisplayRows(this.height),
+        foreground: option.foreground,
+        background: option.background,
+      },
+      (response) => {
+        console.log(response);
+        this.userId = response.userId;
+      }
+    );
 
     // will updated by setFont()
     this.fontWidth = fontAttribute.width;
@@ -219,6 +226,11 @@ class LemEditor extends HTMLElement {
 
     // resize to initial size
     this.resizeTo(option.cols, option.rows);
+  }
+
+  register(method, handler) {
+    this.messageMap.set(method, handler);
+    this.rpcDelegator.on(method, handler);
   }
 
   resizeTo(col, row) {
@@ -370,7 +382,20 @@ class LemEditor extends HTMLElement {
     view.scroll(n);
   }
 
-  updateDisplay(params) {}
+  updateDisplay(params) {
+    doLog("updateDisplay", params);
+    for (let viewId in this.viewTable) {
+      const view = this.viewTable[viewId];
+      view.touch();
+    }
+  }
+
+  bulk(messages) {
+    doLog("bulk", messages);
+    for (const { method, argument } of messages) {
+      this.messageMap.get(method)(argument);
+    }
+  }
 }
 
 class Picker {
@@ -477,7 +502,7 @@ class VerticalBorder {
 
   move(x, y) {
     this.border.style.left = Math.floor(
-      x * fontAttribute.width - fontAttribute.width / 2,
+      x * fontAttribute.width - fontAttribute.width / 2
     );
     this.border.style.top = y * fontAttribute.height;
   }
@@ -523,7 +548,7 @@ class View {
       this.leftSideBorder = new VerticalBorder(
         x - 2,
         y,
-        height + (this.modelineSurface === null ? 0 : 1),
+        height + (this.modelineSurface === null ? 0 : 1)
       );
     } else {
       this.leftSideBorder = null;
@@ -556,12 +581,12 @@ class View {
     this.editSurface.canvas.parentNode.removeChild(this.editSurface.canvas);
     if (this.modelineSurface !== null) {
       this.modelineSurface.canvas.parentNode.removeChild(
-        this.modelineSurface.canvas,
+        this.modelineSurface.canvas
       );
     }
     if (this.leftSideBorder !== null) {
       this.leftSideBorder.border.parentNode.removeChild(
-        this.leftSideBorder.border,
+        this.leftSideBorder.border
       );
     }
   }
@@ -583,14 +608,14 @@ class View {
     if (this.modelineSurface !== null) {
       this.modelineSurface.move(
         this.x,
-        this.editSurface.y + this.editSurface.height,
+        this.editSurface.y + this.editSurface.height
       );
       this.modelineSurface.resize(width, 1);
     }
     if (this.leftSideBorder !== null) {
       this.leftSideBorder.move(this.x, this.editSurface.y - 2);
       this.leftSideBorder.resize(
-        height + (this.modelineSurface === null ? 0 : 1),
+        height + (this.modelineSurface === null ? 0 : 1)
       );
     }
   }
@@ -738,7 +763,7 @@ class Surface {
         y: y * fontAttribute.height,
         w: w * fontAttribute.width + 1,
         h: h * fontAttribute.height,
-      }),
+      })
     );
   }
 
@@ -750,7 +775,7 @@ class Surface {
         x: x * fontAttribute.width,
         y: y * fontAttribute.height,
         text: text,
-      }),
+      })
     );
   }
 
@@ -761,7 +786,7 @@ class Surface {
         x: x * fontAttribute.width,
         y: (y + 1) * fontAttribute.height - 3,
         width: fontAttribute.width * length,
-      }),
+      })
     );
   }
 
@@ -803,7 +828,7 @@ class Surface {
         0,
         n * fontAttribute.height,
         this.width * fontAttribute.width,
-        (this.height - n) * fontAttribute.height,
+        (this.height - n) * fontAttribute.height
       );
       this.ctx.putImageData(image, 0, 0);
     } else {
@@ -812,12 +837,12 @@ class Surface {
         0,
         0,
         this.width * fontAttribute.width,
-        (this.height - n) * fontAttribute.height,
+        (this.height - n) * fontAttribute.height
       );
       this.ctx.putImageData(
         image,
         x * fontAttribute.width,
-        (y + n) * fontAttribute.height,
+        (y + n) * fontAttribute.height
       );
     }
   }
